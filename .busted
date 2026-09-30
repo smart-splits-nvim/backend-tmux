@@ -7,4 +7,6 @@ return {
   },
   default = { ROOT = { 'tests/core' } },
   core = { ROOT = { 'tests/core' } },
+  -- drives a real tmux server on a private socket; skipped when tmux is absent
+  integration = { ROOT = { 'tests/integration' } },
 }

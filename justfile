@@ -22,12 +22,20 @@ deps-force:
     just deps
 
 # Run all tests
-test: deps
+test: test-core test-integration
+
+# Run the hermetic tests, against a fake tmux
+test-core: deps
     SMART_SPLITS_DIR="$(pwd)/deps/smart-splits.nvim" busted --run=core
+
+# Run the tests that drive a real tmux server on a private socket
+test-integration: deps
+    SMART_SPLITS_DIR="$(pwd)/deps/smart-splits.nvim" busted --run=integration
 
 # Check formatting
 fmt-check:
     stylua --check lua tests
+    shfmt --indent 2 --case-indent --diff smart-splits.tmux
     yamlfmt -gitignore_excludes -dry .
     prettier --check "**/*.{json,jsonc}"
     tombi format --offline --check .
@@ -36,6 +44,7 @@ fmt-check:
 # Format code
 fmt:
     stylua lua tests
+    shfmt --indent 2 --case-indent --write smart-splits.tmux
     yamlfmt -gitignore_excludes .
     prettier --write "**/*.{json,jsonc}"
     tombi format --offline .
@@ -44,6 +53,7 @@ fmt:
 # Run selene
 lint:
     selene ./lua/ ./tests/
+    shellcheck smart-splits.tmux
     actionlint
     statix check
 

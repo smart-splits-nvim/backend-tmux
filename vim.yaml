@@ -11,6 +11,11 @@ globals:
     args:
       - type: string
       - type: function
+  pending:
+    args:
+      - type: string
+      - type: function
+        required: false
   setup:
     args:
       - type: function

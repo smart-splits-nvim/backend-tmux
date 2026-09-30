@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for your interest in contributing to this backend template!
+Thank you for your interest in contributing to `smart-splits-backend-tmux`!
 
 ## Development Setup
 
@@ -20,7 +20,7 @@ If you prefer to install tools manually:
 
 ```sh
 # macOS
-brew install neovim stylua lua-language-server luajit luarocks just \
+brew install neovim tmux stylua lua-language-server luajit luarocks just \
   yamlfmt prettier tombi nixfmt actionlint statix
 
 LUAJIT_PREFIX="$(brew --prefix luajit)"
@@ -47,11 +47,13 @@ This runs:
 Individual commands:
 
 ```sh
-just test        # Run tests
-just lint        # Run linters
-just fmt-check   # Check formatting
-just fmt         # Auto-format code
-just typecheck   # Type checking
+just test             # Run both test suites
+just test-core        # Hermetic tests, against a fake tmux
+just test-integration # Tests that drive a real tmux server
+just lint             # Run linters
+just fmt-check        # Check formatting
+just fmt              # Auto-format code
+just typecheck        # Type checking
 ```
 
 To run the tests against Neovim nightly:
@@ -66,19 +68,45 @@ latest nightly.
 
 ## Implementation Guidelines
 
+### Layout
+
+```
+lua/smart-splits-backend-tmux/
+├── init.lua      # the backend table core sees
+├── config.lua    # defaults and setup(), inert by protocol
+├── tmux.lua      # the `tmux` CLI adapter; the only module that runs processes
+├── move.lua      # move(), including at_edge
+├── resize.lua    # resize()
+├── activate.lua  # the `@pane-is-vim` lifecycle
+└── health.lua    # :checkhealth body, under a header core emits
+smart-splits.tmux  # the tmux half, for TPM: writes the key bindings
+tests/
+├── core/         # hermetic, against the fake tmux in tests/helpers.lua
+└── integration/  # against a real tmux server on a private socket
+```
+
 ### Backend Protocol
 
-Your backend must implement the v3 protocol:
+This backend implements the v3 protocol:
 
 ```lua
 ---@class SmartSplitsBackend
 ---@field name string
 ---@field protocol_version string  -- "3.0.0"
 ---@field detect fun():boolean
----@field move SmartSplitsBackendMove
----@field resize? SmartSplitsBackendResize
+---@field move fun(direction: SmartSplitsDirection, opts?: SmartSplitsBackendMoveOpts):boolean
+---@field resize? fun(direction: SmartSplitsDirection, opts?: SmartSplitsBackendResizeOpts):boolean
+---@field activate? fun()
 ---@field health? fun()
 ```
+
+Two rules from the protocol are easy to break by accident:
+
+- **`detect()` must be cheap and free of side effects.** No subprocesses: core resolves backends
+  inside its own `setup()`, so a `detect()` that shells out delays every startup.
+- **`setup()` must stay inert.** Users install several backends and list them in priority order, so
+  every installed backend is configured on every startup. Initialization belongs in `activate()`,
+  which only the selected backend gets.
 
 ### Type Annotations
 
@@ -100,12 +128,19 @@ end
 
 ### Testing
 
-All new functionality should include tests. The test suite uses:
+All new functionality should include tests. Both suites use:
 - Busted test framework
 - nlua (Neovim Lua interpreter)
 - smart-splits core's `protocol_tests` for conformance
 
-Test files follow the pattern `tests/core/*_spec.lua`.
+`tests/core/*_spec.lua` runs against the fake tmux server in `tests/helpers.lua`, which records what
+the backend sent and answers the queries it makes. These tests are hermetic: they never touch a real
+tmux, and behave the same whether or not you run them from inside one.
+
+`tests/integration/*_spec.lua` starts a real tmux server per test, on a private socket and with
+`-f /dev/null` so no user config can interfere, and kills it afterwards. Use these for anything whose
+correctness depends on how tmux actually answers, rather than on what the backend sends. They skip
+themselves when `tmux` is not on the `$PATH`.
 
 ## Code Style
 
@@ -126,4 +161,4 @@ These are enforced by Stylua, yamlfmt, prettier, tombi, actionlint, and statix.
 
 ## Questions?
 
-Open an issue if you have questions about implementing a backend.
+Open an issue if you have questions about this backend, or about the protocol it implements.

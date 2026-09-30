@@ -49,8 +49,12 @@
             nixfmt
             prettier
             selene
+            shellcheck
+            shfmt
             statix
             stylua
+            # the integration suite drives a real server on a private socket
+            tmux
             tombi
             yamlfmt
           ];
@@ -59,7 +63,7 @@
         formatter = treefmt-wrapper;
         devShells = {
           default = pkgs.mkShell {
-            name = "backend-template";
+            name = "backend-tmux";
             packages = packagesFor pkgs;
           };
           ci = pkgs.mkShell {
